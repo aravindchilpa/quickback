@@ -46,13 +46,14 @@ function resetRateLimit() {
 }
 
 // Helper function to fetch news data
-async function fetchNewsData(apiKey, language, query, nextPage) {
+async function fetchNewsData(apiKey, language, query, category, nextPage) {
     try {
         const response = await axios.get(`https://newsdata.io/api/1/latest`, {
             params: {
                 apikey: apiKey,
                 language: language,
                 q: query,
+                category: category,
                 page: nextPage,
                 country: country,
             },
@@ -82,8 +83,9 @@ app.get('/search', async (req, res) => {
 
     const query = req.query.q; // Get the search query
     const language = req.query.language || 'en'; // Default to 'en' if no language is provided
+    const category = req.query.category; // Get the category parameter if provided
     const nextPage = req.query.page; // Get the page parameter if provided
-    const cacheKey = nextPage ? `search-${language}-${query}-page-${nextPage}` : `search-${language}-${query}`;
+    const cacheKey = nextPage ? `search-${language}-${query}-${category}-page-${nextPage}` : `search-${language}-${query}-${category}`;
     let cachedData = cache.get(cacheKey);
 
     if (cachedData) {
@@ -106,7 +108,7 @@ app.get('/search', async (req, res) => {
         originalApiRequestCounts.search++;
         console.log(`Total requests to original API: ${originalApiRequestCounts.search}`);
 
-        const data = await fetchNewsData(apiKeys.search, language, query, nextPage);
+        const data = await fetchNewsData(apiKeys.search, language, query, category, nextPage);
         cache.set(cacheKey, data); // Store data in cache
         console.log('Serving from API and caching');
         return res.json(data);
@@ -146,7 +148,7 @@ async function handleNewsRequest(req, res, apiKey, language, apiKeyType) {
         originalApiRequestCounts[apiKeyType]++;
         console.log(`Total requests to original API: ${originalApiRequestCounts[apiKeyType]}`);
 
-        const data = await fetchNewsData(apiKey, language, null, nextPage);
+        const data = await fetchNewsData(apiKey, language, null, null, nextPage);
         cache.set(cacheKey, data); // Store data in cache
         console.log('Serving from API and caching');
         return res.json(data);
