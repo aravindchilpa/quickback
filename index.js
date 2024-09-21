@@ -16,7 +16,7 @@ const apiKeys = {
     english: process.env.ENGLISH,
     search: process.env.SEARCH,
 };
-
+const country = "in";
 app.use(express.json());
 
 // Counters for tracking requests
@@ -54,6 +54,7 @@ async function fetchNewsData(apiKey, language, query, nextPage) {
                 language: language,
                 q: query,
                 page: nextPage,
+                country: country,
             },
         });
         return response.data;
