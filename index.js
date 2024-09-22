@@ -1,14 +1,70 @@
 const express = require('express');
 const axios = require('axios');
-const NodeCache = require('node-cache');
+const cheerio = require('cheerio');
 const cors = require('cors');
+const bodyParser = require('body-parser');
+const NodeCache = require('node-cache');
 const dotenv = require('dotenv');
+const Groq = require('groq-sdk');
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3031;
 const cache = new NodeCache({ stdTTL: 43200 }); // Cache time-to-live of 12 hours
+
+app.use(express.static('public'));
+app.use(cors());
+app.use(bodyParser.json());
+
+const groq = new Groq({ apiKey: process.env.AI });
+
+// Mock function to simulate the rewriteUsingGroq function
+const rewriteUsingGroq = async (text, prompt) => {
+    try {
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "user",
+                    content: `${prompt} "${text}". Provide as detailed a response as possible.`
+                }
+            ],
+            model: "llama-3.1-70b-versatile"
+        });
+        return chatCompletion.choices[0]?.message?.content.trim() || '';
+    } catch (error) {
+        throw error;
+    }
+};
+
+app.post('/topnews/url', async (req, res) => {
+    const url = req.body.url;
+
+    if (!url) {
+        return res.status(400).json({ error: 'URL is required' });
+    }
+
+    try {
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+
+        const articleTitle = $('.article-HD').text().trim();
+        const articleImage = $('.articleImg img').attr('src');
+        const articleBody = $('.ArticleBodyCont p').map((i, el) => $(el).text().trim()).get().join('\n');
+
+        // Rewrite the title and body using the rewriteUsingGroq function
+        const rewrittenTitle = await rewriteUsingGroq(articleTitle, "Rewrite the following title with only one option and single title, Don't give multiple titles and without any explanation and as detailed title as possible and only in telugu laungage and rewrite this without changing the actual meaning:");
+        const rewrittenBody = await rewriteUsingGroq(articleBody, 'Rewrite the following text and as big response as possible and as detailed text as possible and only in telugu laungage and rewrite in more than 4000 words:');
+
+        res.json({
+            title: rewrittenTitle,
+            image: articleImage,
+            body: rewrittenBody
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to scrape the URL' });
+    }
+});
 
 // Define your API keys
 const apiKeys = {
@@ -17,7 +73,6 @@ const apiKeys = {
     search: process.env.SEARCH,
 };
 const country = "in";
-app.use(express.json());
 
 // Counters for tracking requests
 let apiRequestCount = 0;
@@ -82,7 +137,7 @@ app.get('/search', async (req, res) => {
     console.log(`Total requests to /search endpoint: ${apiRequestCount}`);
 
     const query = req.query.q; // Get the search query
-    const language = req.query.language || 'en'; // Default to 'en' if no language is provided
+    const language = req.query.language || 'te'; // Default to 'en' if no language is provided
     const category = req.query.category; // Get the category parameter if provided
     const nextPage = req.query.page; // Get the page parameter if provided
     const cacheKey = nextPage ? `search-${language}-${query}-${category}-page-${nextPage}` : `search-${language}-${query}-${category}`;
@@ -185,8 +240,17 @@ app.get('/rate-limit', (req, res) => {
     res.json(rateLimitInfo);
 });
 
+// Endpoint to get top news
+app.get('/topnews', async (req, res) => {
+    try {
+        const response = await axios.get('https://tv9telugu.com/wp-json/tv9/v1/top9new');
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch news data' });
+    }
+});
+
 // Start the server
-const PORT = process.env.PORT || 3031;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
