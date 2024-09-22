@@ -79,7 +79,7 @@ app.get('/telugu/news', async (req, res) => {
 });
 
 app.get('/telugutwo/news', async (req, res) => {
-    await handleNewsRequest(req, res, apiKeys.telugutwo, 'te', 'telugu');
+    await handleNewsRequest(req, res, apiKeys.telugutwo, 'te', 'telugutwo');
 });
 
 // Endpoint to get latest news in English
