@@ -29,7 +29,7 @@ const rewriteUsingGroq = async (text, prompt) => {
                     content: `${prompt} "${text}". Provide as detailed a response as possible.`
                 }
             ],
-            model: "llama-3.1-70b-versatile"
+            model: "llama-3.1-8b-instant"
         });
         return chatCompletion.choices[0]?.message?.content.trim() || '';
     } catch (error) {
